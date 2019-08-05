@@ -88,6 +88,7 @@ func resourceProject() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"windows_service": getDeploymentStepWindowsServiceSchema(),
 						"iis_website":     getDeploymentStepIISWebsiteSchema(),
+						"package":         getDeploymentStepPackageSchema(),
 						"inline_script":   getDeploymentStepInlineScriptSchema(),
 						"kubernetes_helm": getDeploymentStepKubernetesHelmSchema(),
 						"kubernetes_yaml": getDeploymentStepKubernetesYamlSchema(),
@@ -216,6 +217,7 @@ func addIISApplicationPoolSchema(schemaToAddToo interface{}) *schema.Resource {
 		ValidateFunc: validateValueFunc([]string{
 			"v2.0",
 			"v4.0",
+			"No Managed Code",
 		}),
 	}
 
@@ -382,6 +384,20 @@ func getDeploymentStepPackageScriptSchema() *schema.Schema {
 	return schemaToReturn
 }
 
+func getDeploymentStepPackageSchema() *schema.Schema {
+	schemaToReturn := &schema.Schema{
+		Type:     schema.TypeList,
+		Optional: true,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{},
+		},
+	}
+	schemaToReturn.Elem = addConfigurationTransformDeploymentStepSchema(schemaToReturn.Elem)
+	schemaToReturn.Elem = addFeedAndPackageDeploymentStepSchema(schemaToReturn.Elem)
+	schemaToReturn.Elem = addStandardDeploymentStepSchema(schemaToReturn.Elem, false)
+	return schemaToReturn
+}
+
 func getDeploymentStepApplyTerraformSchema() *schema.Schema {
 	schemaToReturn := &schema.Schema{
 		Type:     schema.TypeList,
@@ -542,9 +558,9 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 									"Octopus.Action.WindowsService.CreateOrUpdateService":                       "True",
 									"Octopus.Action.WindowsService.ServiceAccount":                              serviceAccount,
 									"Octopus.Action.WindowsService.StartMode":                                   serviceStartMode,
-									"Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles":   strconv.FormatBool(configurationTransforms),
-									"Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings": strconv.FormatBool(configurationVariables),
-									"Octopus.Action.EnabledFeatures":                                            "Octopus.Features.WindowsService,Octopus.Features.ConfigurationTransforms,Octopus.Features.ConfigurationVariables",
+									"Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles":   strings.Title(strconv.FormatBool(configurationTransforms)),
+									"Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings": strings.Title(strconv.FormatBool(configurationVariables)),
+									"Octopus.Action.EnabledFeatures":                                            "Octopus.Features.WindowsService",
 									"Octopus.Action.Package.FeedId":                                             feedID,
 									"Octopus.Action.Package.PackageId":                                          packageID,
 									"Octopus.Action.Package.DownloadOnTentacle":                                 "False",
@@ -553,6 +569,14 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 								},
 							},
 						},
+					}
+
+					if configurationTransforms {
+						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.ConfigurationTransforms"
+					}
+
+					if configurationVariables {
+						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.ConfigurationVariables"
 					}
 
 					if jsonFileVariableReplacement != "" {
@@ -623,14 +647,14 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 									"Octopus.Action.IISWebSite.Bindings":                                        "[{\"protocol\":\"http\",\"port\":\"80\",\"host\":\"\",\"thumbprint\":null,\"certificateVariable\":null,\"requireSni\":false,\"enabled\":true}]",
 									"Octopus.Action.IISWebSite.ApplicationPoolFrameworkVersion":                 applicationPoolFramework,
 									"Octopus.Action.IISWebSite.ApplicationPoolIdentityType":                     applicationPoolIdentity,
-									"Octopus.Action.IISWebSite.EnableAnonymousAuthentication":                   strconv.FormatBool(anonymousAuthentication),
-									"Octopus.Action.IISWebSite.EnableBasicAuthentication":                       strconv.FormatBool(basicAuthentication),
-									"Octopus.Action.IISWebSite.EnableWindowsAuthentication":                     strconv.FormatBool(windowsAuthentication),
+									"Octopus.Action.IISWebSite.EnableAnonymousAuthentication":                   strings.Title(strconv.FormatBool(anonymousAuthentication)),
+									"Octopus.Action.IISWebSite.EnableBasicAuthentication":                       strings.Title(strconv.FormatBool(basicAuthentication)),
+									"Octopus.Action.IISWebSite.EnableWindowsAuthentication":                     strings.Title(strconv.FormatBool(windowsAuthentication)),
 									"Octopus.Action.IISWebSite.WebApplication.ApplicationPoolFrameworkVersion":  applicationPoolFramework,
 									"Octopus.Action.IISWebSite.WebApplication.ApplicationPoolIdentityType":      applicationPoolIdentity,
-									"Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles":   strconv.FormatBool(configurationTransforms),
-									"Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings": strconv.FormatBool(configurationVariables),
-									"Octopus.Action.EnabledFeatures":                                            "Octopus.Features.IISWebSite,Octopus.Features.ConfigurationTransforms,Octopus.Features.ConfigurationVariables",
+									"Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles":   strings.Title(strconv.FormatBool(configurationTransforms)),
+									"Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings": strings.Title(strconv.FormatBool(configurationVariables)),
+									"Octopus.Action.EnabledFeatures":                                            "Octopus.Features.IISWebSite",
 									"Octopus.Action.Package.FeedId":                                             feedID,
 									"Octopus.Action.Package.DownloadOnTentacle":                                 "False",
 									"Octopus.Action.IISWebSite.WebRootType":                                     "packageRoot",
@@ -642,6 +666,13 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 								},
 							},
 						},
+					}
+
+					if configurationTransforms {
+						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.ConfigurationTransforms"
+					}
+					if configurationVariables {
+						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.ConfigurationVariables"
 					}
 
 					if jsonFileVariableReplacement != "" {
@@ -697,7 +728,7 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 								Name:       stepName,
 								ActionType: "Octopus.Script",
 								Properties: map[string]string{
-									"Octopus.Action.RunOnServer":                strconv.FormatBool(runOnServer),
+									"Octopus.Action.RunOnServer":                strings.Title(strconv.FormatBool(runOnServer)),
 									"Octopus.Action.Script.ScriptSource":        "Inline",
 									"Octopus.Action.Package.DownloadOnTentacle": "False",
 									"Octopus.Action.Script.ScriptBody":          scriptBody,
@@ -750,7 +781,7 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 								Name:       stepName,
 								ActionType: "Octopus.HelmChartUpgrade",
 								Properties: map[string]string{
-									"Octopus.Action.Helm.ResetValues":           strconv.FormatBool(resetValues),
+									"Octopus.Action.Helm.ResetValues":           strings.Title(strconv.FormatBool(resetValues)),
 									"Octopus.Action.Helm.ReleaseName":           releaseName,
 									"Octopus.Action.Helm.Namespace":             namespace,
 									"Octopus.Action.Helm.YamlValues":            yamlValues,
@@ -854,7 +885,7 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 								Name:       stepName,
 								ActionType: "Octopus.Script",
 								Properties: map[string]string{
-									"Octopus.Action.RunOnServer":                strconv.FormatBool(runOnServer),
+									"Octopus.Action.RunOnServer":                strings.Title(strconv.FormatBool(runOnServer)),
 									"Octopus.Action.Script.ScriptSource":        "Package",
 									"Octopus.Action.Package.DownloadOnTentacle": "False",
 									"Octopus.Action.Package.FeedId":             feedID,
@@ -881,12 +912,12 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 					}
 
 					if configurationTransforms {
-						deploymentStep.Actions[0].Properties["Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles"] = strconv.FormatBool(configurationTransforms)
+						deploymentStep.Actions[0].Properties["Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles"] = strings.Title(strconv.FormatBool(configurationTransforms))
 						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.ConfigurationTransforms"
 					}
 
 					if configurationVariables {
-						deploymentStep.Actions[0].Properties["Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings"] = strconv.FormatBool(configurationVariables)
+						deploymentStep.Actions[0].Properties["Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings"] = strings.Title(strconv.FormatBool(configurationVariables))
 						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.ConfigurationVariables"
 					}
 
@@ -930,7 +961,7 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 								Name:       stepName,
 								ActionType: "Octopus.TerraformApply",
 								Properties: map[string]string{
-									"Octopus.Action.RunOnServer":                    strconv.FormatBool(runOnServer),
+									"Octopus.Action.RunOnServer":                    strings.Title(strconv.FormatBool(runOnServer)),
 									"Octopus.Action.Script.ScriptSource":            "Package",
 									"Octopus.Action.Package.DownloadOnTentacle":     "False",
 									"Octopus.Action.Package.FeedId":                 feedID,
@@ -972,9 +1003,75 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 					deploymentProcess.Steps = append(deploymentProcess.Steps, *deploymentStep)
 				}
 			}
+
+			if v, ok := deploymentStep["package"]; ok {
+				steps := v.([]interface{})
+				for _, raw := range steps {
+					localStep := raw.(map[string]interface{})
+					configurationTransforms := localStep["configuration_transforms"].(bool)
+					configurationVariables := localStep["configuration_variables"].(bool)
+					feedID := localStep["feed_id"].(string)
+					jsonFileVariableReplacement := localStep["json_file_variable_replacement"].(string)
+					variableSubstitutionInFiles := localStep["variable_substitution_in_files"].(string)
+					packageID := localStep["package"].(string)
+					stepCondition := localStep["step_condition"].(string)
+					stepName := localStep["step_name"].(string)
+					stepStartTrigger := localStep["step_start_trigger"].(string)
+					deploymentStep := &octopusdeploy.DeploymentStep{
+						Name:               stepName,
+						PackageRequirement: "LetOctopusDecide",
+						Condition:          octopusdeploy.DeploymentStepCondition(stepCondition),
+						StartTrigger:       octopusdeploy.DeploymentStepStartTrigger(stepStartTrigger),
+						Actions: []octopusdeploy.DeploymentAction{
+							{
+								Name:       stepName,
+								ActionType: "Octopus.TentaclePackage",
+								Properties: map[string]string{
+									"Octopus.Action.Package.AutomaticallyRunConfigurationTransformationFiles":   strings.Title(strconv.FormatBool(configurationTransforms)),
+									"Octopus.Action.Package.AutomaticallyUpdateAppSettingsAndConnectionStrings": strings.Title(strconv.FormatBool(configurationVariables)),
+									"Octopus.Action.EnabledFeatures":                                            "",
+									"Octopus.Action.Package.FeedId":                                             feedID,
+									"Octopus.Action.Package.PackageId":                                          packageID,
+									"Octopus.Action.Package.DownloadOnTentacle":                                 "False",
+								},
+							},
+						},
+					}
+
+					if configurationTransforms {
+						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.ConfigurationTransforms"
+					}
+
+					if configurationVariables {
+						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.ConfigurationVariables"
+					}
+
+					if jsonFileVariableReplacement != "" {
+						deploymentStep.Actions[0].Properties["Octopus.Action.Package.JsonConfigurationVariablesTargets"] = jsonFileVariableReplacement
+						deploymentStep.Actions[0].Properties["Octopus.Action.Package.JsonConfigurationVariablesEnabled"] = "True"
+						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.JsonConfigurationVariables"
+					}
+
+					if variableSubstitutionInFiles != "" {
+						deploymentStep.Actions[0].Properties["Octopus.Action.SubstituteInFiles.TargetFiles"] = variableSubstitutionInFiles
+						deploymentStep.Actions[0].Properties["Octopus.Action.SubstituteInFiles.Enabled"] = "True"
+						deploymentStep.Actions[0].Properties["Octopus.Action.EnabledFeatures"] += ",Octopus.Features.SubstituteInFiles"
+					}
+
+					if targetRolesInterface, ok := localStep["target_roles"]; ok {
+						var targetRoleSlice []string
+						targetRoles := targetRolesInterface.([]interface{})
+						for _, role := range targetRoles {
+							targetRoleSlice = append(targetRoleSlice, role.(string))
+						}
+						deploymentStep.Properties = map[string]string{"Octopus.Action.TargetRoles": strings.Join(targetRoleSlice, ",")}
+					}
+
+					deploymentProcess.Steps = append(deploymentProcess.Steps, *deploymentStep)
+				}
+			}
 		}
 	}
-
 	return deploymentProcess
 }
 
