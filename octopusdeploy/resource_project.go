@@ -446,6 +446,12 @@ func getDeploymentStepIISWebsiteSchema() *schema.Schema {
 					Description: "Whether IIS should allow integrated Windows authentication with a 401 challenge.",
 					Default:     true,
 				},
+				"site_bindings": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					Description: "IIS site bindings JSON",
+					Default:     "[{\"protocol\":\"http\",\"port\":\"80\",\"host\":\"\",\"thumbprint\":null,\"certificateVariable\":null,\"requireSni\":false,\"enabled\":true}]",
+				},
 			},
 		},
 	}
@@ -591,6 +597,7 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 
 					localStep := raw.(map[string]interface{})
 
+					siteBindings := localStep["site_bindings"].(string)
 					anonymousAuthentication := localStep["anonymous_authentication"].(bool)
 					applicationPoolFramework := localStep["application_pool_framework"].(string)
 					applicationPoolIdentity := localStep["application_pool_identity"].(string)
@@ -620,7 +627,7 @@ func buildDeploymentProcess(d *schema.ResourceData, deploymentProcess *octopusde
 								Properties: map[string]string{
 									"Octopus.Action.IISWebSite.DeploymentType":                                  "webSite",
 									"Octopus.Action.IISWebSite.CreateOrUpdateWebSite":                           "True",
-									"Octopus.Action.IISWebSite.Bindings":                                        "[{\"protocol\":\"http\",\"port\":\"80\",\"host\":\"\",\"thumbprint\":null,\"certificateVariable\":null,\"requireSni\":false,\"enabled\":true}]",
+									"Octopus.Action.IISWebSite.Bindings":                                        siteBindings,
 									"Octopus.Action.IISWebSite.ApplicationPoolFrameworkVersion":                 applicationPoolFramework,
 									"Octopus.Action.IISWebSite.ApplicationPoolIdentityType":                     applicationPoolIdentity,
 									"Octopus.Action.IISWebSite.EnableAnonymousAuthentication":                   strconv.FormatBool(anonymousAuthentication),
